@@ -1,0 +1,39 @@
+name: Probe sources
+
+# Manual only. Reports which retailer endpoints are reachable from a GitHub
+# Actions runner, which is the only environment whose answer actually matters
+# for this tracker. Run it before adding a source, or when one goes dark.
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Probe
+        run: python tools/probe_sources.py | tee probe.txt
+
+      - name: Publish results to the run summary
+        if: always()
+        run: |
+          echo '### Source reachability from this runner' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat probe.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-results
+          path: probe-results.json
