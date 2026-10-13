@@ -22,7 +22,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Probe
-        run: python tools/probe_sources.py | tee probe.txt
+        run: |
+          python tools/probe_sources.py --dump amazon-product-search,price-rank | tee probe.txt
 
       - name: Publish results to the run summary
         if: always()
@@ -36,4 +37,6 @@ jobs:
         if: always()
         with:
           name: probe-results
-          path: probe-results.json
+          path: |
+            probe-results.json
+            dumps/

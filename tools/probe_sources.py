@@ -124,15 +124,29 @@ def probe(label: str, url: str, extra: dict | None) -> dict:
         jsonld="application/ld+json" in low,
         prices=sorted(set(PRICE_RE.findall(body)))[:5],
         note="",
+        body=body,
     )
     return row
 
 
 def main() -> int:
+    # --dump a,b  saves those candidates' raw bodies next to the results, so a
+    # parser can be developed and tested offline against what CI actually sees.
+    dump: set[str] = set()
+    for i, arg in enumerate(sys.argv):
+        if arg == "--dump" and i + 1 < len(sys.argv):
+            dump = {x.strip() for x in sys.argv[i + 1].split(",") if x.strip()}
+
     rows = []
     for label, url, extra in CANDIDATES:
         row = probe(label, url, extra)
         rows.append(row)
+        if label in dump and row.get("body"):
+            out = Path("dumps") / (label.replace(" ", "_") + ".html")
+            out.parent.mkdir(exist_ok=True)
+            out.write_text(row["body"], encoding="utf-8")
+            print(f"  -> dumped {out} ({len(row['body'])} bytes)", flush=True)
+        row.pop("body", None)
         verdict = (
             "USABLE" if row["model"] and row["prices"] and not row["blocked"]
             else "blocked" if row["blocked"]
