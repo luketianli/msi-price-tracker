@@ -191,7 +191,7 @@ tests/                      64 offline tests
 .github/workflows/
   track.yml                 the 3-hourly cron job
   tests.yml                 CI
-data/                       created on first real run
+data/                       price history + alert state, committed each run
 ```
 
 Adding a retailer is one file in `tracker/sources/` with an `@register("name")`
