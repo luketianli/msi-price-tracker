@@ -8,6 +8,17 @@ It runs free on GitHub Actions cron. There is no server, no database and no
 paid tier: price history is committed back into `data/` in the repo, which
 doubles as the keep-alive that stops GitHub disabling the schedule.
 
+## Dashboard
+
+**https://luketianli.github.io/msi-price-tracker/**
+
+A single page, rebuilt by every run: the cheapest alertable price as the
+headline figure, how far it sits from your target, a price-history chart per
+retailer, and a table of current listings with stock and links. It is a static
+file generated server-side into `docs/` -- no CDN, no JavaScript framework, no
+runtime data fetching, so it renders the same offline and cannot break because
+a dependency moved. Light and dark themes both ship.
+
 ## Prices when this was built (2026-10-11)
 
 | Retailer | Price | Condition | Stock |
@@ -127,7 +138,8 @@ SMTP_USER=you@gmail.com SMTP_PASS=xxxx ALERT_TO=you@gmail.com \
 python -m tracker.main --dry-run          # scrape and print, change nothing
 python -m tracker.main --dry-run -v       # with HTTP debug logging
 python -m tracker.main --threshold 850    # see what an alert would look like
-python -m pytest                          # 64 offline tests
+python -m tracker.main --render-only      # rebuild the dashboard only
+python -m pytest                          # 83 offline tests
 ```
 
 On Windows PowerShell, set env vars with `$env:SMTP_USER = "..."` first.
@@ -187,11 +199,13 @@ tracker/
   notify.py                 SMTP email rendering
   http.py                   browser-like session with retries
   sources/                  one module per retailer, self-registering
-tests/                      64 offline tests
+  dashboard.py              renders docs/index.html (inline SVG, no deps)
+tests/                      83 offline tests
 .github/workflows/
   track.yml                 the 3-hourly cron job
   tests.yml                 CI
 data/                       price history + alert state, committed each run
+docs/                       the published dashboard (GitHub Pages)
 ```
 
 Adding a retailer is one file in `tracker/sources/` with an `@register("name")`

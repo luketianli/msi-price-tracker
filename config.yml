@@ -82,3 +82,8 @@ http:
   timeout_seconds: 25
   retries: 3
   backoff_seconds: 2.0
+
+dashboard:
+  # Renders docs/index.html after each run; GitHub Pages serves it from /docs.
+  enabled: true
+  repo_url: "https://github.com/luketianli/msi-price-tracker"

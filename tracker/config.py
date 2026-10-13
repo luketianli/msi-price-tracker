@@ -48,6 +48,7 @@ def load(path: str | Path | None = None) -> dict[str, Any]:
     cfg.setdefault("alert", {})
     cfg.setdefault("sources", {})
     cfg.setdefault("http", {})
+    cfg.setdefault("dashboard", {})
 
     alert = cfg["alert"]
     alert.setdefault("threshold", 650.0)

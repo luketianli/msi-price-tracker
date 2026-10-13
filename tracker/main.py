@@ -13,7 +13,7 @@ import os
 import sys
 
 from . import config as config_mod
-from . import notify, sources, state as state_mod
+from . import dashboard, notify, sources, state as state_mod
 from .models import Listing, SourceResult
 
 log = logging.getLogger("tracker")
@@ -77,6 +77,28 @@ def _write_run_summary(lines: list[str]) -> None:
         log.warning("could not write step summary: %s", exc)
 
 
+def _render_dashboard(cfg: dict) -> None:
+    """Regenerate the static status page from whatever history we have."""
+    dash_cfg = cfg.get("dashboard") or {}
+    if not dash_cfg.get("enabled", True):
+        log.info("dashboard disabled in config")
+        return
+    out = dashboard.DOCS_DIR / "index.html"
+    try:
+        dashboard.render(
+            history_path=state_mod.HISTORY_PATH,
+            state_path=state_mod.STATE_PATH,
+            out_path=out,
+            product_name=cfg["product"].get("name", "Tracked product"),
+            threshold=float(cfg["alert"]["threshold"]),
+            conditions=list(cfg["alert"]["conditions"]),
+            repo_url=dash_cfg.get("repo_url"),
+        )
+    except OSError as exc:
+        # A dashboard failure must never mask a successful price check.
+        log.error("could not write dashboard: %s", exc)
+
+
 def run(args: argparse.Namespace) -> int:
     cfg = config_mod.load(args.config)
     if args.threshold is not None:
@@ -86,6 +108,10 @@ def run(args: argparse.Namespace) -> int:
     product_name = cfg["product"].get("name", "Tracked product")
     currency = alert_cfg.get("currency", "USD")
     threshold = float(alert_cfg["threshold"])
+
+    if args.render_only:
+        _render_dashboard(cfg)
+        return 0
 
     state = state_mod.load_state()
 
@@ -210,6 +236,7 @@ def run(args: argparse.Namespace) -> int:
         exit_code = exit_code or 1
 
     state_mod.save_state(state)
+    _render_dashboard(cfg)
     _write_run_summary(summary)
     return exit_code
 
@@ -226,6 +253,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--test-email", action="store_true",
                    help="send one sample alert to verify SMTP credentials")
     p.add_argument("--threshold", type=float, help="override the alert threshold")
+    p.add_argument("--render-only", action="store_true",
+                   help="rebuild docs/index.html from stored history without scraping")
     p.add_argument("-v", "--verbose", action="store_true")
     return p
 
