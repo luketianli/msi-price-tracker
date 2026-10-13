@@ -77,6 +77,12 @@ built against HTML captured on the runner itself; that capture is the test
 fixture. Matching uses the URL slug before `/dp/` and never the ASIN, because
 an ASIN shaped like `B0X24...` would satisfy the "X24" token on its own.
 
+Amazon is **intermittent from CI**: the same query returns a full results page
+one minute and an empty shell the next. A shell is reported as a source
+failure rather than as "the monitor isn't listed", so it shows up in the run
+summary instead of quietly looking like an answer. The other sources cover
+those runs.
+
 ### What cannot be reached, and why
 
 Measured from a GitHub Actions runner with `tools/probe_sources.py` (the
@@ -168,7 +174,7 @@ python -m tracker.main --dry-run          # scrape and print, change nothing
 python -m tracker.main --dry-run -v       # with HTTP debug logging
 python -m tracker.main --threshold 850    # see what an alert would look like
 python -m tracker.main --render-only      # rebuild the dashboard only
-python -m pytest                          # 113 offline tests
+python -m pytest                          # 115 offline tests
 ```
 
 On Windows PowerShell, set env vars with `$env:SMTP_USER = "..."` first.
@@ -231,7 +237,7 @@ tracker/
   http.py                   browser-like session with retries
   sources/                  one module per retailer, self-registering
   dashboard.py              renders docs/index.html (inline SVG, no deps)
-tests/                      113 offline tests
+tests/                      115 offline tests
   fixtures/                 real captured retailer HTML
 .github/workflows/
   track.yml                 the 3-hourly cron job

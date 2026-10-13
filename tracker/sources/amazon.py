@@ -106,6 +106,16 @@ def scrape(src_cfg: dict, product: dict, http_cfg: dict) -> list[Listing]:
     results = soup.select('div[data-component-type="s-search-result"]')
     log.info("amazon: %d result block(s) on page", len(results))
 
+    if not results:
+        # Amazon is intermittent from CI: the same query returns a full 1 MB
+        # results page one minute and a near-empty shell the next. Reporting
+        # that as "nothing matched" would be wrong and would hide a soft block,
+        # so it is raised as a source failure instead.
+        raise ValueError(
+            f"Amazon returned no search-result blocks ({len(html):,} bytes) "
+            "- soft block or stub page"
+        )
+
     listings: list[Listing] = []
     for result in results:
         link = result.select_one("a.a-link-normal[href], h2 a[href]")

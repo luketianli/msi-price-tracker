@@ -159,6 +159,27 @@ class TestBotWall:
         with pytest.raises(ValueError, match="bot-challenge"):
             amazon.scrape(CFG, PRODUCT, HTTP)
 
+    def test_stub_page_raises_rather_than_reporting_no_match(self, monkeypatch):
+        """Amazon intermittently serves CI a shell with no result blocks. That
+        is a failure to read the source, not evidence that the monitor is
+        absent -- conflating the two would hide a soft block."""
+        monkeypatch.setattr(
+            amazon, "fetch",
+            lambda *a, **k: "<html><body><div id='search'></div></body></html>",
+        )
+        with pytest.raises(ValueError, match="no search-result blocks"):
+            amazon.scrape(CFG, PRODUCT, HTTP)
+
+    def test_results_present_but_none_matching_is_not_an_error(self, monkeypatch):
+        """A page full of other monitors is a legitimate 'not stocked' answer."""
+        html = """
+        <div data-component-type="s-search-result" data-asin="B0OTHER">
+          <h2><a class="a-link-normal" href="/LG-UltraGear-32GS95UE/dp/B0OTHER">lg</a></h2>
+          <span class="a-price"><span class="a-offscreen">$899.00</span></span>
+        </div>"""
+        monkeypatch.setattr(amazon, "fetch", lambda *a, **k: html)
+        assert amazon.scrape(CFG, PRODUCT, HTTP) == []
+
     def test_fetch_error_propagates(self, monkeypatch):
         def boom(*a, **k):
             raise FetchError("HTTP 503")
