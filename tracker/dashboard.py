@@ -33,9 +33,17 @@ SERIES_COLORS = [
     {"light": "#eda100", "dark": "#c98500"},
 ]
 
-# When two sources report the same retailer+condition, trust the direct
-# retailer scraper over the aggregator.
-SOURCE_PRIORITY = {"newegg": 0, "walmart": 1, "jsonld": 2, "smartprix": 3}
+# When two sources report the same retailer+condition, trust whichever read the
+# retailer directly over the aggregator, which can lag by days. Amazon is the
+# clearest case: scraped directly it shows the cheapest *buyable* X24, while the
+# aggregator still quotes a price whose listing has gone unavailable.
+SOURCE_PRIORITY = {
+    "newegg": 0,
+    "amazon": 1,
+    "walmart": 2,
+    "jsonld": 3,
+    "smartprix": 4,
+}
 
 CONDITION_LABEL = {
     "new": "new",

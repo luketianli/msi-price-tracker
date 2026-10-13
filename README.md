@@ -60,22 +60,51 @@ entirely, which is why the URL slug is part of the match.
 
 | Source | What it gives | Status |
 | --- | --- | --- |
-| `smartprix` | Amazon + Newegg in one request | on, most reliable |
 | `newegg` | Newegg per-SKU live price, stock, open-box | on |
+| `amazon` | Amazon search results, direct | on |
 | `walmart` | Walmart | on, best effort |
-| `jsonld` | generic schema.org scraper for any product URL | off by default |
+| `smartprix` | aggregator: a second opinion on Amazon + Newegg | on |
+| `jsonld` | Micro Center, B&H, Best Buy, Adorama, Antonline | off - needs a proxy |
 
-The Newegg source queries its per-item realtime endpoint for the two exact
-SKUs (`N82E16824475582` new, `...582R` open box). That returns live price,
-a real stock flag, and the full product title — far better than scraping the
-search page, which Newegg A/B-serves as a React shell containing no prices
-about a quarter of the time. The search scrape is kept as a fallback.
+`newegg` queries its per-item realtime endpoint for the two exact SKUs
+(`N82E16824475582` new, `...582R` open box), returning live price, a real stock
+flag and the full product title. That beats scraping its search page, which
+Newegg A/B-serves as a React shell with no prices about a quarter of the time.
 
-Amazon, B&H, Micro Center, Adorama, eBay and PCPartPicker all answer **HTTP
-403** to GitHub's datacenter IP ranges, so they can't be scraped directly from
-Actions — Amazon pricing arrives via the aggregator instead. If you ever run
-this from a home IP, flip `sources.jsonld.enabled` to `true` in `config.yml`
-to pick up B&H and Micro Center as well.
+`amazon` parses its search results. Amazon serves a full 1 MB page to GitHub
+Actions runners while giving many other clients a ~2 KB stub, so the parser was
+built against HTML captured on the runner itself; that capture is the test
+fixture. Matching uses the URL slug before `/dp/` and never the ASIN, because
+an ASIN shaped like `B0X24...` would satisfy the "X24" token on its own.
+
+### What cannot be reached, and why
+
+Measured from a GitHub Actions runner with `tools/probe_sources.py` (the
+**Probe sources** workflow). These refuse both CI and ordinary residential
+IPs, so no parser reaches them unaided:
+
+| Retailer | Result |
+| --- | --- |
+| Micro Center | HTTP 403 (all URLs tried) |
+| B&H Photo | HTTP 403 |
+| Best Buy | connection refused; official API needs an approved key |
+| Adorama, Antonline, Provantage, Connection, SHI | HTTP 403 |
+| Target | HTTP 200 but a bot wall, no prices |
+| eBay, PCPartPicker | HTTP 403 |
+| price-rank.com | HTTP 200 but client-rendered, no prices in the HTML |
+
+**To add them anyway**, set the `FETCH_PROXY_TEMPLATE` secret to a fetch
+service URL containing a `{url}` placeholder and flip `sources.jsonld.enabled`
+to `true`:
+
+```
+https://api.scraperapi.com/?api_key=YOUR_KEY&url={url}
+```
+
+The template is provider-neutral; anything with that shape works. At 8 runs a
+day over 5 URLs it costs ~1,200 requests a month, so check your plan's free
+allowance. With the variable unset, that source stays off and nothing else
+changes.
 
 If *every* source fails 3 runs in a row you get a "tracker is blind" email, so
 silence never gets mistaken for "the price never dropped".
@@ -139,7 +168,7 @@ python -m tracker.main --dry-run          # scrape and print, change nothing
 python -m tracker.main --dry-run -v       # with HTTP debug logging
 python -m tracker.main --threshold 850    # see what an alert would look like
 python -m tracker.main --render-only      # rebuild the dashboard only
-python -m pytest                          # 83 offline tests
+python -m pytest                          # 113 offline tests
 ```
 
 On Windows PowerShell, set env vars with `$env:SMTP_USER = "..."` first.
@@ -192,6 +221,8 @@ The **Run workflow** button also takes a one-off threshold.
 
 ```
 config.yml                  threshold, sources, matching rules
+tools/
+  probe_sources.py          which retailers can CI actually reach?
 tracker/
   main.py                   orchestration + CLI
   match.py                  model/condition/price parsing  <- the safety rail
@@ -200,10 +231,12 @@ tracker/
   http.py                   browser-like session with retries
   sources/                  one module per retailer, self-registering
   dashboard.py              renders docs/index.html (inline SVG, no deps)
-tests/                      83 offline tests
+tests/                      113 offline tests
+  fixtures/                 real captured retailer HTML
 .github/workflows/
   track.yml                 the 3-hourly cron job
   tests.yml                 CI
+  probe.yml                 manual source-reachability probe
 data/                       price history + alert state, committed each run
 docs/                       the published dashboard (GitHub Pages)
 ```

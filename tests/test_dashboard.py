@@ -40,6 +40,29 @@ class TestBuildSeries:
         assert key == ("Newegg", "new")
         assert [r["price"] for r in rows] == [772.99]
 
+    def test_direct_amazon_beats_the_aggregator(self, tmp_path):
+        """smartprix keeps quoting $799.49 for an Amazon listing that has gone
+        unavailable; the direct scrape shows the cheapest buyable unit. The
+        direct read must win, or the dashboard shows a price you cannot pay."""
+        p = write_history(tmp_path / "h.jsonl", [
+            obs(T1, "Amazon", 799.49, source="smartprix"),
+            obs(T1, "Amazon", 1072.05, source="amazon"),
+        ])
+        series = dashboard.build_series(dashboard.load_history(p))
+        assert len(series) == 1
+        (_, rows), = series.items()
+        assert [r["price"] for r in rows] == [1072.05]
+
+    def test_every_configured_source_has_a_priority(self):
+        """A source missing from the table silently sorts last, which would
+        let the aggregator override it."""
+        import yaml
+        cfg = yaml.safe_load(open("config.yml", encoding="utf-8").read())
+        for name in cfg["sources"]:
+            assert name in dashboard.SOURCE_PRIORITY, (
+                f"source {name!r} is not in SOURCE_PRIORITY"
+            )
+
     def test_condition_splits_series(self, tmp_path):
         p = write_history(tmp_path / "h.jsonl", [
             obs(T1, "Newegg", 772.99, condition="new", source="newegg"),

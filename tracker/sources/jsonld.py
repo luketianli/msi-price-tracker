@@ -75,6 +75,7 @@ def scrape(src_cfg: dict, product_cfg: dict, http_cfg: dict) -> list[Listing]:
                 timeout=http_cfg.get("timeout_seconds", 25),
                 retries=http_cfg.get("retries", 3),
                 backoff=http_cfg.get("backoff_seconds", 2.0),
+                via_proxy=bool(src_cfg.get("via_proxy")),
             )
         except FetchError as exc:
             errors.append(str(exc))

@@ -2,15 +2,21 @@
 
 Retailers reject obviously-automated clients, so we present a complete,
 consistent set of browser headers and retry with backoff on the transient
-status codes. This is plain polite scraping: no proxies, no CAPTCHA solving,
-one request per source per run.
+status codes. One request per source per run, and no CAPTCHA solving.
+
+By default every request goes out directly. Sources that opt in with
+`via_proxy` are routed through whatever fetch service `FETCH_PROXY_TEMPLATE`
+names, which is the only way to reach the retailers that refuse datacenter and
+residential IPs alike; with that variable unset those sources simply stay off.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import random
 import time
+from urllib.parse import quote
 
 import requests
 
@@ -41,9 +47,32 @@ BASE_HEADERS = {
 
 RETRY_STATUS = {408, 425, 429, 500, 502, 503, 504}
 
+# Some retailers (Micro Center, B&H, Best Buy, Adorama) refuse datacenter and
+# ordinary residential IPs alike, so no parser can reach them unaided. Setting
+# FETCH_PROXY_TEMPLATE to a fetch-service URL containing "{url}" lets the
+# sources that opt in route through it, e.g.
+#   https://api.scraperapi.com/?api_key=KEY&url={url}
+# Left unset, nothing changes and those sources stay off.
+PROXY_TEMPLATE_ENV = "FETCH_PROXY_TEMPLATE"
+
 
 class FetchError(RuntimeError):
     """A source could not be read. Carries no price information."""
+
+
+def proxy_configured() -> bool:
+    return bool(os.environ.get(PROXY_TEMPLATE_ENV, "").strip())
+
+
+def _apply_proxy(url: str) -> str:
+    template = os.environ.get(PROXY_TEMPLATE_ENV, "").strip()
+    if not template:
+        raise FetchError(
+            f"source requires a proxy but {PROXY_TEMPLATE_ENV} is not set"
+        )
+    if "{url}" not in template:
+        raise FetchError(f"{PROXY_TEMPLATE_ENV} must contain the '{{url}}' placeholder")
+    return template.replace("{url}", quote(url, safe=""))
 
 
 def fetch(
@@ -53,8 +82,12 @@ def fetch(
     retries: int = 3,
     backoff: float = 2.0,
     extra_headers: dict | None = None,
+    via_proxy: bool = False,
 ) -> str:
     """GET `url` and return the body text, or raise FetchError."""
+    if via_proxy:
+        url = _apply_proxy(url)
+
     headers = dict(BASE_HEADERS)
     if extra_headers:
         headers.update(extra_headers)

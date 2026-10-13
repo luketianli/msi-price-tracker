@@ -56,6 +56,8 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERT_TO: ${{ secrets.ALERT_TO }}
           ALERT_FROM: ${{ secrets.ALERT_FROM }}
+          # Only needed if sources.jsonld is enabled; harmless when unset.
+          FETCH_PROXY_TEMPLATE: ${{ secrets.FETCH_PROXY_TEMPLATE }}
           # Both are empty on scheduled runs; the config loader and the
           # shell test below each treat empty as "not set".
           PRICE_THRESHOLD: ${{ github.event.inputs.threshold }}

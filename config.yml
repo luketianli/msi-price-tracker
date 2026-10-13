@@ -68,15 +68,44 @@ sources:
     enabled: true
     url: "https://www.walmart.com/search?q=MSI+MAG+321UP+QD-OLED+X24"
 
-  # Generic schema.org/JSON-LD scraper. Add any retailer product page here and
-  # it will try to read Product/Offer markup out of it. These mostly return
-  # HTTP 403 from GitHub's IP ranges, so they are off by default; flip
-  # `enabled` to true if you run this from a residential IP instead.
+  # Amazon, scraped directly from its search results. Amazon serves a full
+  # page to GitHub Actions runners (though only a stub to most other clients),
+  # so this works in CI and is more current than the aggregator's Amazon row.
+  #
+  # This page is the project's richest source of near-misses: it also returns
+  # the 165 Hz MAG 321UP at ~$671, a 27-inch MAG 272UP QD-OLED *X24* at ~$629
+  # and a MAG 272QP X24 at ~$350. Matching is done on the URL slug before
+  # "/dp/", never the ASIN, which can itself contain "X24".
+  amazon:
+    enabled: true
+    url: "https://www.amazon.com/s?k=MSI+MAG+321UP+QD-OLED+X24"
+
+  # Generic schema.org / JSON-LD scraper for the retailers that cannot be
+  # reached directly. Micro Center, B&H, Best Buy, Adorama, Antonline, Target,
+  # eBay, PCPartPicker and SHI all refuse both GitHub Actions runners and
+  # ordinary residential IPs -- verified from CI with
+  # `tools/probe_sources.py` (the "Probe sources" workflow). No parser can get
+  # at them unaided, so this source is OFF by default.
+  #
+  # To switch it on you need a fetch service. Set the FETCH_PROXY_TEMPLATE
+  # secret to a URL containing the "{url}" placeholder, for example:
+  #   https://api.scraperapi.com/?api_key=YOUR_KEY&url={url}
+  # then set `enabled: true` below. At 8 runs a day across 5 URLs that is
+  # ~1,200 requests a month, so check it against your plan's free allowance.
+  #
+  # These are search URLs, which is what works without being able to load the
+  # sites. If you can see a product page in your own browser, paste its exact
+  # URL here instead -- product pages carry proper Product/Offer markup and
+  # parse far more reliably than search results.
   jsonld:
     enabled: false
+    via_proxy: true
     urls:
-      - "https://www.bhphotovideo.com/c/product/1884447-REG/msi_mag321updex24_mag_321up_qd_oled.html"
       - "https://www.microcenter.com/search/search_results.aspx?Ntt=MAG+321UP+QD-OLED+X24"
+      - "https://www.bhphotovideo.com/c/product/1884447-REG/msi_mag321updex24_mag_321up_qd_oled.html"
+      - "https://www.bestbuy.com/site/searchpage.jsp?st=MAG+321UP+QD-OLED+X24"
+      - "https://www.adorama.com/l/?searchinfo=MAG+321UP+QD-OLED+X24"
+      - "https://www.antonline.com/search?search_query=MAG+321UP+QD-OLED+X24"
 
 http:
   timeout_seconds: 25
