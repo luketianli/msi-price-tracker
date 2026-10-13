@@ -2,8 +2,9 @@
   "alerts": {},
   "consecutive_failures": 0,
   "last_health_alert": null,
-  "last_run": "2026-10-13T02:24:29.820089+00:00",
+  "last_run": "2026-10-13T02:26:36.174536+00:00",
   "lowest_seen": {
+    "amazon:amazon:new": 1072.05,
     "newegg:newegg:new": 772.99,
     "newegg:newegg:open_box": 680.06,
     "smartprix:amazon:new": 799.49,
