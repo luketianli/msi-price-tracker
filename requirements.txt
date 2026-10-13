@@ -1,0 +1,4 @@
+# Pinned to the versions this project was built and tested against.
+requests==2.34.2
+beautifulsoup4==4.15.0
+PyYAML==6.0.3

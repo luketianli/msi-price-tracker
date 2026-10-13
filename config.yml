@@ -1,0 +1,84 @@
+# MSI MAG 321UP QD-OLED X24 price tracker configuration.
+#
+# Anything here can be overridden by an environment variable (see README),
+# which is how the GitHub Actions workflow injects secrets.
+
+product:
+  # Human-readable name used in alert emails.
+  name: "MSI MAG 321UP QD-OLED X24"
+
+  # Model matching. A listing only counts as *this* monitor if, after
+  # stripping all non-alphanumeric characters from its title, it contains
+  # every token in `require_all`. This is what keeps the tracker from
+  # alerting on the similarly-named 165 Hz "MAG 321UP QD-OLED" (no X24).
+  match:
+    require_all: ["321UP", "X24"]
+    # Listings whose title contains any of these are rejected outright.
+    reject_any: ["BUNDLE", "STAND ONLY", "REPLACEMENT PANEL"]
+
+alert:
+  # Email when a qualifying listing is at or below this price.
+  threshold: 650.00
+  currency: USD
+
+  # Which item conditions may trigger an alert.
+  # Newegg currently has an open-box X24 at ~$665 and used units at ~$404-562,
+  # so leaving "used"/"open_box" enabled here will fire alerts that have
+  # nothing to do with a genuine new-unit price drop. Add "open_box" if you
+  # would actually buy one.
+  conditions: ["new"]
+
+  # Don't re-send the same alert for this many hours unless the price drops
+  # at least `renotify_drop` below the last alerted price.
+  cooldown_hours: 24
+  renotify_drop: 10.00
+
+  # If every source fails this many consecutive runs, email a warning instead
+  # of silently assuming the price never dropped.
+  health_alert_after_failures: 3
+
+sources:
+  # Aggregator: one fetch returns Amazon + Newegg prices. Most reliable from
+  # a datacenter IP, which is what GitHub Actions runs on.
+  smartprix:
+    enabled: true
+    url: "https://us.smartprix.com/monitors/msi-mag-321up-qd-oled-x24-32-inch-ultra-hd-ppd19i2tvun8"
+
+  # Newegg. Queries the per-item realtime price endpoint for these exact SKUs,
+  # which returns live price + stock + the full product title. The two SKUs are
+  # identical apart from the trailing "R" and share the same title, so the
+  # condition has to be declared here -- there is nothing in the response to
+  # infer it from.
+  #
+  # `url` is a fallback: if the API is unreachable, the search page is scraped
+  # instead. (Newegg A/B-serves a React shell for that page about a quarter of
+  # the time, which contains no prices at all; the API path avoids that.)
+  newegg:
+    enabled: true
+    url: "https://www.newegg.com/p/pl?d=MAG+321UP"
+    items:
+      - item_number: "N82E16824475582"
+        condition: new
+      - item_number: "N82E16824475582R"
+        condition: open_box
+
+  # Walmart embeds prices in its HTML but rate-limits aggressively and the
+  # page shape changes often. Treated as best-effort.
+  walmart:
+    enabled: true
+    url: "https://www.walmart.com/search?q=MSI+MAG+321UP+QD-OLED+X24"
+
+  # Generic schema.org/JSON-LD scraper. Add any retailer product page here and
+  # it will try to read Product/Offer markup out of it. These mostly return
+  # HTTP 403 from GitHub's IP ranges, so they are off by default; flip
+  # `enabled` to true if you run this from a residential IP instead.
+  jsonld:
+    enabled: false
+    urls:
+      - "https://www.bhphotovideo.com/c/product/1884447-REG/msi_mag321updex24_mag_321up_qd_oled.html"
+      - "https://www.microcenter.com/search/search_results.aspx?Ntt=MAG+321UP+QD-OLED+X24"
+
+http:
+  timeout_seconds: 25
+  retries: 3
+  backoff_seconds: 2.0

@@ -1,0 +1,89 @@
+name: Track price
+
+on:
+  schedule:
+    # Every 3 hours. GitHub queues cron on a best-effort basis, so treat the
+    # time as approximate. Scheduled runs only ever fire on the default branch.
+    - cron: "0 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Override the alert threshold (USD) for this run"
+        required: false
+        type: string
+      dry_run:
+        description: "Scrape and report without sending email or saving state"
+        required: false
+        type: boolean
+        default: false
+
+# Needed to commit the refreshed price history back to the repo. That commit
+# is also what keeps the schedule alive: GitHub disables cron on repos with no
+# activity for 60 days.
+permissions:
+  contents: write
+
+# Never let a slow run overlap the next scheduled one.
+concurrency:
+  group: track-price
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check price
+        id: track
+        # Keep going on failure so the history commit below still happens and
+        # the run summary stays readable; the final step re-raises the failure.
+        continue-on-error: true
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+          ALERT_FROM: ${{ secrets.ALERT_FROM }}
+          PRICE_THRESHOLD: ${{ github.event.inputs.threshold }}
+        run: |
+          python -m tracker.main \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      - name: Commit price history
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          if [ -z "$(git status --porcelain data)" ]; then
+            echo "No history changes to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "chore: record price observation [skip ci]"
+          # Another run may have pushed while we were scraping.
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push failed (attempt $attempt); rebasing on origin."
+            git pull --rebase --autostash || true
+          done
+          echo "::warning::Could not push price history after 3 attempts."
+
+      - name: Surface tracker failure
+        if: steps.track.outcome == 'failure'
+        run: |
+          echo "::error::Price check reported a failure - see the run summary above."
+          exit 1

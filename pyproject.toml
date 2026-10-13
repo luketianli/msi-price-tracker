@@ -1,0 +1,10 @@
+[project]
+name = "msi-price-tracker"
+version = "1.0.0"
+description = "Tracks the MSI MAG 321UP QD-OLED X24 price and emails on a drop"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
