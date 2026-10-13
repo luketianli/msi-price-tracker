@@ -56,10 +56,16 @@ jobs:
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           ALERT_TO: ${{ secrets.ALERT_TO }}
           ALERT_FROM: ${{ secrets.ALERT_FROM }}
+          # Both are empty on scheduled runs; the config loader and the
+          # shell test below each treat empty as "not set".
           PRICE_THRESHOLD: ${{ github.event.inputs.threshold }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          python -m tracker.main \
-            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+          args=""
+          if [ "$DRY_RUN" = "true" ]; then
+            args="--dry-run"
+          fi
+          python -m tracker.main $args
 
       - name: Commit price history
         if: github.event.inputs.dry_run != 'true'

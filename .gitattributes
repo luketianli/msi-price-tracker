@@ -1,0 +1,5 @@
+# Authored on Windows, executed on ubuntu-latest runners: force LF so the
+# shell blocks inside the workflows never arrive with CRLF line endings.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
